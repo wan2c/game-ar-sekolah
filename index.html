@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <title>Game AR Tangkap Bola - Manstick Jari Hijau</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #111;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Bingkai Game 640x480 */
+    #game-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      border: 3px solid #444;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      background: #000;
+    }
+
+    /* Video Webcam Native di belakang */
+    #webcam {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 640px !important;
+      height: 480px !important;
+      object-fit: cover !important;
+      transform: scaleX(-1) !important; /* Mirror */
+      z-index: 1 !important;
+    }
+
+    /* Kanvas Game & Tracking di atas video */
+    #gameCanvas {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 640px !important;
+      height: 480px !important;
+      transform: scaleX(-1) !important; /* Mirror */
+      z-index: 10 !important;
+      pointer-events: none;
+    }
+
+    /* Skor UI */
+    #ui {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 8px 16px;
+      border-radius: 20px;
+      z-index: 100 !important;
+      pointer-events: none;
+    }
+  </style>
+
+  <!-- Pustaka MediaPipe Rasmi yang Stabil -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="ui">Skor: <span id="score">0</span></div>
+    <!-- Element Video Webcam Native -->
+    <video id="webcam" autoplay playsinline muted></video>
+    <!-- Element Kanvas Bola & Jari -->
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+
+    let score = 0;
+    let handLandmarks = null; // Menyimpan data semua titik tangan (bukan satu sahaja)
+
+    let target = {
+      x: Math.random() * 540 + 50,
+      y: Math.random() * 380 + 50,
+      radius: 25,
+      color: '#ff4757'
+    };
+
+    // Bunyi Pop picit
+    function playPopSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+      } catch (e) {}
+    }
+
+    // 1. Setup MediaPipe Hands (Pengesan Tangan AI)
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+      maxNumHands: 1,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    hands.onResults((results) => {
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        handLandmarks = results.multiHandLandmarks[0]; // Ambil data 21 sendi tangan
+      } else {
+        handLandmarks = null;
+      }
+    });
+
+    // 2. Hidupkan Kamera Native Browser
+    const camera = new Camera(video, {
+      onFrame: async () => {
+        await hands.send({ image: video });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
+
+    // 3. Loop Render Grafik (Bola Merah & "Manstick" Jari Hijau)
+    function gameLoop() {
+      // Bersihkan kanvas (Latar belakang lutsinar)
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Lukis Bola Merah Sasaran AR di atas Webcam
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+      ctx.fillStyle = target.color;
+      ctx.fill();
+      ctx.shadowColor = target.color;
+      ctx.shadowBlur = 15;
+      ctx.closePath();
+      ctx.shadowBlur = 0;
+
+      // Jika Jari Dikesan, Lukis Rangka Jari/Tangan (Manstick) warna hijau
+      if (handLandmarks) {
+        
+        // A. LUKIS TULANG / GARISAN PENGHUBUNG JARI (Skeletal Sticks)
+        // MediaPipe Landmarks: 0=pergelangan, 1-4=ibu jari, 5-8=telunjuk, 9-12=tengah, 13-16=manis, 17-20=kelingking
+        const connections = [
+          [0, 1, 2, 3, 4],       // Ibu Jari
+          [0, 5, 6, 7, 8],       // Jari Telunjuk
+          [5, 9, 13, 17],        // Sambungan tapak tangan bawah
+          [0, 17, 18, 19, 20],   // Jari Kelingking
+          [9, 10, 11, 12],       // Jari Tengah
+          [13, 14, 15, 16]       // Jari Manis
+        ];
+
+        ctx.strokeStyle = '#2ed573'; // Warna hijau "manstick"
+        ctx.lineWidth = 4; // Ketebalan "stick" tulang jari
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        connections.forEach(path => {
+          ctx.beginPath();
+          path.forEach((index, i) => {
+            const landmark = handLandmarks[index];
+            const x = landmark.x * canvas.width;
+            const y = landmark.y * canvas.height;
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.stroke();
+          ctx.closePath();
+        });
+
+        // B. LUKIS BULATAN SENDI (Joint Dots)
+        handLandmarks.forEach(landmark => {
+          const x = landmark.x * canvas.width;
+          const y = landmark.y * canvas.height;
+
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#00ff00'; // Hijau menyala
+          ctx.fill();
+          ctx.closePath();
+        });
+
+        // C. SEMAK SENTUHAN: HUJUNG JARI TELUNJUK (Landmark 8) DENGAN BOLA MERAH
+        const tip = handLandmarks[8];
+        const fingerX = tip.x * canvas.width;
+        const fingerY = tip.y * canvas.height;
+
+        // Visual khas tambahan pada penunjuk telunjuk aktif
+        ctx.beginPath();
+        ctx.arc(fingerX, fingerY, 10, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.closePath();
+
+        // Semak Sentuhan / Pelanggaran Bola
+        const distance = Math.hypot(fingerX - target.x, fingerY - target.y);
+        if (distance < target.radius + 15) {
+          score += 10;
+          scoreEl.textContent = score;
+          playPopSound();
+
+          // Pindah bola
+          target.x = Math.random() * (canvas.width - 100) + 50;
+          target.y = Math.random() * (canvas.height - 100) + 50;
+        }
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
