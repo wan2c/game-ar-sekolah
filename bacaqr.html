@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengimbas Barcode Webcam</title>
+    
+    <!-- Memuatkan Library Html5-QRCode secara tempatan/CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #reader {
+            width: 100%;
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+
+        /* 
+           EFFECT MIRROR (KIRI-KANAN SAHAJA):
+           Memilih elemen video dalam kawalan reader dan menterbalikkan
+           secara horizontal sahaja menggunakan scaleX(-1).
+
+            https://script.google.com/macros/s/AKfycbxHAiPtRtWCzSq0PBp8r5hFvrVkqlZlae8xgw63EZcVPm3Xlr-wkC8rEm4cLBxX0_TQaA/exec
+
+        */
+        #reader video {
+            transform: scaleX(-1) !important;
+            -webkit-transform: scaleX(-1) !important;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 8px;
+            word-break: break-all;
+        }
+
+        .result-title {
+            font-weight: bold;
+            color: #2e7d32;
+        }
+
+        .result-text {
+            font-size: 1.2em;
+            color: #1b5e20;
+            margin-top: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Pengimbas Barcode & QR</h2>
+        <p>Arahkan barcode pada kamera/webcam anda</p>
+
+        <!-- Kawasan paparan kamera -->
+        <div id="reader"></div>
+
+        <!-- Keputusan imbasan -->
+        <div class="result-box">
+            <div class="result-title">Hasil Imbasan:</div>
+            <div id="result" class="result-text">Menunggu imbasan...</div>
+        </div>
+    </div>
+
+    <script>
+        // Fungsi yang dipanggil apabila barcode berjaya diimbas
+        function onScanSuccess(decodedText, decodedResult) {
+            console.log(`Kod diimbas: ${decodedText}`, decodedResult);
+            
+            // Paparkan hasil pada elemen HTML
+            document.getElementById('result').innerText = decodedText;
+
+            // Bunyi 'beep' ringkas bila berjaya imbas (pilihan)
+            playBeep();
+        }
+
+        // Fungsi jika berlaku ralat imbasan (biasanya diabaikan semasa imbasan berterusan)
+        function onScanFailure(error) {
+            // console.warn(`Ralat imbasan = ${error}`);
+        }
+
+        // Konfigurasi tetapan imbasan
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 10, // Frame per second
+                qrbox: { width: 250, height: 150 }, // Saiz kotak imbasan (sesuai untuk barcode panjang)
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            }, 
+            /* verbose= */ false
+        );
+
+        // Mulakan imbasan
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+        // Fungsi bunyi beep
+        function playBeep() {
+            let ctx = new (window.AudioContext || window.webkitAudioContext)();
+            let osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.1);
+        }
+    </script>
+
+</body>
+</html>
