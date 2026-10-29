@@ -2,244 +2,541 @@
 <html lang="ms">
 <head>
   <meta charset="UTF-8">
-  <title>Game AR Tangkap Bola - Manstick Jari Hijau</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game AR Kuiz Tapak Tangan - 10 Soalan & Timer</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Outfit:wght@600;800;900&display=swap');
+
+    * { box-sizing: border-box; }
     body {
-      margin: 0;
-      padding: 0;
-      background-color: #111;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
+      margin: 0; padding: 0;
+      background: radial-gradient(circle at center, #1a1c2e 0%, #0d0e15 100%);
+      font-family: 'Fredoka', sans-serif;
+      display: flex; justify-content: center; align-items: center;
+      min-height: 100vh; color: #fff;
     }
 
-    /* Bingkai Game 640x480 */
     #game-container {
       position: relative;
-      width: 640px;
-      height: 480px;
-      border: 3px solid #444;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      width: 640px; height: 480px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(46, 213, 115, 0.2);
       background: #000;
     }
 
-    /* Video Webcam Native di belakang */
     #webcam {
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 640px !important;
-      height: 480px !important;
-      object-fit: cover !important;
-      transform: scaleX(-1) !important; /* Mirror */
+      position: absolute !important; top: 0 !important; left: 0 !important;
+      width: 640px !important; height: 480px !important;
+      object-fit: cover !important; transform: scaleX(-1) !important;
       z-index: 1 !important;
     }
 
-    /* Kanvas Game & Tracking di atas video */
     #gameCanvas {
-      position: absolute !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 640px !important;
-      height: 480px !important;
-      transform: scaleX(-1) !important; /* Mirror */
-      z-index: 10 !important;
+      position: absolute !important; top: 0 !important; left: 0 !important;
+      width: 640px !important; height: 480px !important;
+      transform: scaleX(-1) !important; z-index: 10 !important;
       pointer-events: none;
     }
 
-    /* Skor UI */
-    #ui {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      color: #fff;
-      font-size: 22px;
-      font-weight: bold;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 8px 16px;
-      border-radius: 20px;
-      z-index: 100 !important;
-      pointer-events: none;
+    /* Top HUD UI Header */
+    #ui-header {
+      position: absolute; top: 12px; left: 15px; right: 15px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 100 !important; pointer-events: none;
     }
+
+    .hud-badge {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      padding: 6px 16px; border-radius: 50px;
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 700;
+    }
+
+    .hud-badge span.value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px; font-weight: 900; color: #2ed573;
+    }
+
+    /* Modal Tamat Game */
+    #endModal {
+      position: absolute; inset: 0; z-index: 200;
+      background: rgba(13, 14, 21, 0.95);
+      backdrop-filter: blur(12px);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center; padding: 20px;
+    }
+
+    #endModal.hidden { display: none; }
+
+    #endModal h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 42px; font-weight: 900;
+      margin: 0 0 10px 0;
+      background: linear-gradient(to right, #2ed573, #7bed9f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    #endModal .score-box {
+      font-family: 'Outfit', sans-serif;
+      font-size: 64px; font-weight: 900;
+      color: #ffbe76; margin: 15px 0;
+      text-shadow: 0 0 20px rgba(255, 190, 118, 0.5);
+    }
+
+    #endModal button {
+      margin-top: 20px; padding: 12px 32px;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 18px; font-weight: 700; color: #000;
+      background: linear-gradient(135deg, #2ed573, #7bed9f);
+      border: none; border-radius: 50px; cursor: pointer;
+      box-shadow: 0 10px 20px rgba(46, 213, 115, 0.4);
+      transition: transform 0.2s;
+    }
+
+    #endModal button:hover { transform: scale(1.05); }
   </style>
 
-  <!-- Pustaka MediaPipe Rasmi yang Stabil -->
+  <!-- Pustaka MediaPipe Rasmi -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
+  <!-- 7 HIDDEN INPUT VALUES -->
+  <input type="hidden" id="idhiddenvalue" value="">
+  <input type="hidden" id="soalanhiddenvalue" value="Memuatkan soalan...">
+  <input type="hidden" id="Ahiddenvalue" value="-">
+  <input type="hidden" id="Bhiddenvalue" value="-">
+  <input type="hidden" id="Chiddenvalue" value="-">
+  <input type="hidden" id="Dhiddenvalue" value="-">
+  <input type="hidden" id="jawapan" value="">
+
   <div id="game-container">
-    <div id="ui">Skor: <span id="score">0</span></div>
-    <!-- Element Video Webcam Native -->
+    <div id="ui-header">
+      <div class="hud-badge">
+        <span>📝 Soalan:</span>
+        <span id="questionNum" class="value" style="color: #38bdf8;">1/10</span>
+      </div>
+      <div class="hud-badge">
+        <span>⏱️ Masa:</span>
+        <span id="timerText" class="value" style="color: #ff4757;">10s</span>
+      </div>
+      <div class="hud-badge">
+        <span>⭐ Skor:</span>
+        <span id="score" class="value">0</span>
+      </div>
+    </div>
+    
     <video id="webcam" autoplay playsinline muted></video>
-    <!-- Element Kanvas Bola & Jari -->
     <canvas id="gameCanvas" width="640" height="480"></canvas>
+
+    <!-- Overlay Skrin Keputusan Akhir -->
+    <div id="endModal" class="hidden">
+      <div style="font-size: 50px;">🏆</div>
+      <h1>KUIZ SELESAI!</h1>
+      <p style="color: #94a3b8; font-size: 18px; margin: 0;">Jumlah Markah Anda:</p>
+      <div id="finalScore" class="score-box">0/10</div>
+      <p id="finalRemark" style="font-size: 18px; color: #f8fafc;"></p>
+      <button onclick="restartQuiz()">Main Semula 🔄</button>
+    </div>
   </div>
 
   <script>
+    // ⚠️ GANTIKAN URL WEB APP APPS SCRIPT ANDA DI SINI
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzx3sii418o0NZrYj8ubEbAR5bZaNIlv1vfz_0SMqKf-4m_Rj5xdFVVMNr7qEv-gZ1F/exec";
+
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const scoreEl = document.getElementById('score');
 
-    let score = 0;
-    let handLandmarks = null; // Menyimpan data semua titik tangan (bukan satu sahaja)
+    // Pengurusan Soalan & Game State
+    let questionsList = [];
+    let currentQuestionIndex = 0;
+    let correctCount = 0;
+    let isGameOver = false;
 
-    let target = {
-      x: Math.random() * 540 + 50,
-      y: Math.random() * 380 + 50,
-      radius: 25,
-      color: '#ff4757'
+    // Pemasa
+    const QUESTION_TIME_LIMIT = 10; // 10 Saat setiap soalan
+    let timeLeft = QUESTION_TIME_LIMIT;
+    let timerInterval = null;
+
+    let handLandmarks = null;
+    let feedbackStatus = ""; 
+    let feedbackColor = "#ffffff";
+    let isCooldown = false;
+    let pulseAnim = 0;
+    let particles = [];
+
+    const boxW = 145, boxH = 95, margin = 15;
+
+    let boxes = {
+      'A': { x: canvas.width - margin - boxW, y: margin, w: boxW, h: boxH, text: '', color: '#ff4757', bg: 'rgba(255, 71, 87, 0.25)', border: '#ff6b81' },
+      'B': { x: margin, y: margin, w: boxW, h: boxH, text: '', color: '#1e90ff', bg: 'rgba(30, 144, 255, 0.25)', border: '#70a1ff' },
+      'C': { x: canvas.width - margin - boxW, y: canvas.height - margin - boxH, w: boxW, h: boxH, text: '', color: '#ffa500', bg: 'rgba(255, 165, 0, 0.25)', border: '#eccc68' },
+      'D': { x: margin, y: canvas.height - margin - boxH, w: boxW, h: boxH, text: '', color: '#2ed573', bg: 'rgba(46, 213, 115, 0.25)', border: '#7bed9f' }
     };
 
-    // Bunyi Pop picit
-    function playPopSound() {
+    // Ambil 10 Soalan dari Sheets
+    async function loadAllQuestions() {
+      try {
+        const response = await fetch(APPS_SCRIPT_URL);
+        questionsList = await response.json();
+        
+        if (questionsList.length > 0) {
+          currentQuestionIndex = 0;
+          correctCount = 0;
+          isGameOver = false;
+          document.getElementById('endModal').classList.add('hidden');
+          displayQuestion(0);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data soalan:", error);
+      }
+    }
+
+    // Paparkan Soalan Mengikut Indeks (0-9)
+    function displayQuestion(index) {
+      if (index >= questionsList.length) {
+        endQuiz();
+        return;
+      }
+
+      const q = questionsList[index];
+
+      // Kemas kini Hidden Value Elements
+      document.getElementById('idhiddenvalue').value = q.bil;
+      document.getElementById('soalanhiddenvalue').value = q.soalan;
+      document.getElementById('Ahiddenvalue').value = q.A;
+      document.getElementById('Bhiddenvalue').value = q.B;
+      document.getElementById('Chiddenvalue').value = q.C;
+      document.getElementById('Dhiddenvalue').value = q.D;
+      document.getElementById('jawapan').value = q.jawapan;
+
+      // Kemas kini Teks UI
+      boxes['A'].text = q.A;
+      boxes['B'].text = q.B;
+      boxes['C'].text = q.C;
+      boxes['D'].text = q.D;
+
+      document.getElementById('questionNum').textContent = `${index + 1}/${questionsList.length}`;
+      document.getElementById('score').textContent = correctCount;
+
+      // Reset Pemasa 10 Saat
+      resetTimer();
+    }
+
+    // Fungsi Pengurusan Masa (10 Saat)
+    function resetTimer() {
+      clearInterval(timerInterval);
+      timeLeft = QUESTION_TIME_LIMIT;
+      document.getElementById('timerText').textContent = `${timeLeft}s`;
+
+      timerInterval = setInterval(() => {
+        if (isCooldown || isGameOver) return;
+
+        timeLeft--;
+        document.getElementById('timerText').textContent = `${timeLeft}s`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          handleTimeOut();
+        }
+      }, 1000);
+    }
+
+    // Tindakan Jika Masa Tamat
+    function handleTimeOut() {
+      isCooldown = true;
+      feedbackStatus = "⏰ MASA TAMAT!";
+      feedbackColor = "#ffa500";
+      playSound('wrong');
+
+      setTimeout(() => {
+        feedbackStatus = "";
+        isCooldown = false;
+        currentQuestionIndex++;
+        displayQuestion(currentQuestionIndex);
+      }, 1800);
+    }
+
+    // Tamat Kuiz & Papar Skor X/10
+    function endQuiz() {
+      clearInterval(timerInterval);
+      isGameOver = true;
+
+      document.getElementById('finalScore').textContent = `${correctCount}/${questionsList.length}`;
+      
+      let remark = "Syabas! Usaha yang baik! 👍";
+      if (correctCount === 10) remark = "Cemerlang! Semua Betul! 🥳🌟";
+      else if (correctCount >= 7) remark = "Hebat! Keputusan yang baik! 🎉";
+      else if (correctCount <= 4) remark = "Jangan putus asa, cuba lagi ya! 💪";
+
+      document.getElementById('finalRemark').textContent = remark;
+      document.getElementById('endModal').classList.remove('hidden');
+    }
+
+    function restartQuiz() {
+      loadAllQuestions();
+    }
+
+    function playSound(type) {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.1);
+
+        if (type === 'correct') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        } else {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+          osc.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.25);
+          gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.25);
+        }
       } catch (e) {}
     }
 
-    // 1. Setup MediaPipe Hands (Pengesan Tangan AI)
+    function createParticles(x, y, color) {
+      for (let i = 0; i < 20; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 7 + 2;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+          radius: Math.random() * 5 + 3, alpha: 1, color: color
+        });
+      }
+    }
+
+    // Setup MediaPipe Hands
     const hands = new Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
     });
 
     hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5
+      maxNumHands: 1, modelComplexity: 1,
+      minDetectionConfidence: 0.6, minTrackingConfidence: 0.6
     });
 
     hands.onResults((results) => {
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        handLandmarks = results.multiHandLandmarks[0]; // Ambil data 21 sendi tangan
+        handLandmarks = results.multiHandLandmarks[0];
       } else {
         handLandmarks = null;
       }
     });
 
-    // 2. Hidupkan Kamera Native Browser
     const camera = new Camera(video, {
-      onFrame: async () => {
-        await hands.send({ image: video });
-      },
-      width: 640,
-      height: 480
+      onFrame: async () => { await hands.send({ image: video }); },
+      width: 640, height: 480
     });
     camera.start();
 
-    // 3. Loop Render Grafik (Bola Merah & "Manstick" Jari Hijau)
+    function drawCenteredText(ctx, text, x, y, maxWidth, lineHeight) {
+      const words = text.split(' ');
+      let line = '';
+      let lines = [];
+
+      for (let n = 0; n < words.length; n++) {
+        let testLine = line + words[n] + ' ';
+        let metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+          lines.push(line);
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+
+      let startY = y - ((lines.length - 1) * lineHeight) / 2;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i].trim(), x, startY + (i * lineHeight));
+      }
+    }
+
     function gameLoop() {
-      // Bersihkan kanvas (Latar belakang lutsinar)
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pulseAnim += 0.05;
 
-      // Lukis Bola Merah Sasaran AR di atas Webcam
-      ctx.beginPath();
-      ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
-      ctx.fillStyle = target.color;
-      ctx.fill();
-      ctx.shadowColor = target.color;
-      ctx.shadowBlur = 15;
-      ctx.closePath();
-      ctx.shadowBlur = 0;
+      // Particle Animation
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.alpha -= 0.03;
+        if (p.alpha <= 0) { particles.splice(i, 1); continue; }
 
-      // Jika Jari Dikesan, Lukis Rangka Jari/Tangan (Manstick) warna hijau
-      if (handLandmarks) {
-        
-        // A. LUKIS TULANG / GARISAN PENGHUBUNG JARI (Skeletal Sticks)
-        // MediaPipe Landmarks: 0=pergelangan, 1-4=ibu jari, 5-8=telunjuk, 9-12=tengah, 13-16=manis, 17-20=kelingking
-        const connections = [
-          [0, 1, 2, 3, 4],       // Ibu Jari
-          [0, 5, 6, 7, 8],       // Jari Telunjuk
-          [5, 9, 13, 17],        // Sambungan tapak tangan bawah
-          [0, 17, 18, 19, 20],   // Jari Kelingking
-          [9, 10, 11, 12],       // Jari Tengah
-          [13, 14, 15, 16]       // Jari Manis
-        ];
-
-        ctx.strokeStyle = '#2ed573'; // Warna hijau "manstick"
-        ctx.lineWidth = 4; // Ketebalan "stick" tulang jari
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        connections.forEach(path => {
-          ctx.beginPath();
-          path.forEach((index, i) => {
-            const landmark = handLandmarks[index];
-            const x = landmark.x * canvas.width;
-            const y = landmark.y * canvas.height;
-            if (i === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-            }
-          });
-          ctx.stroke();
-          ctx.closePath();
-        });
-
-        // B. LUKIS BULATAN SENDI (Joint Dots)
-        handLandmarks.forEach(landmark => {
-          const x = landmark.x * canvas.width;
-          const y = landmark.y * canvas.height;
-
-          ctx.beginPath();
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
-          ctx.fillStyle = '#00ff00'; // Hijau menyala
-          ctx.fill();
-          ctx.closePath();
-        });
-
-        // C. SEMAK SENTUHAN: HUJUNG JARI TELUNJUK (Landmark 8) DENGAN BOLA MERAH
-        const tip = handLandmarks[8];
-        const fingerX = tip.x * canvas.width;
-        const fingerY = tip.y * canvas.height;
-
-        // Visual khas tambahan pada penunjuk telunjuk aktif
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(fingerX, fingerY, 10, 0, Math.PI * 2);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.closePath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
 
-        // Semak Sentuhan / Pelanggaran Bola
-        const distance = Math.hypot(fingerX - target.x, fingerY - target.y);
-        if (distance < target.radius + 15) {
-          score += 10;
-          scoreEl.textContent = score;
-          playPopSound();
+      if (!isGameOver) {
+        // --- A. LUKIS 4 KOTAK PENJURU ---
+        Object.keys(boxes).forEach(key => {
+          const b = boxes[key];
+          ctx.fillStyle = b.bg;
+          ctx.strokeStyle = b.border;
+          ctx.lineWidth = 3;
 
-          // Pindah bola
-          target.x = Math.random() * (canvas.width - 100) + 50;
-          target.y = Math.random() * (canvas.height - 100) + 50;
+          ctx.beginPath();
+          ctx.roundRect(b.x, b.y, b.w, b.h, 16);
+          ctx.fill(); ctx.stroke();
+
+          ctx.save();
+          ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
+          ctx.scale(-1, 1);
+
+          ctx.fillStyle = b.color;
+          ctx.beginPath();
+          ctx.arc(0, -20, 15, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 16px Outfit';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(key, 0, -19);
+
+          ctx.font = 'bold 17px Fredoka';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(b.text, 0, 15);
+          ctx.restore();
+        });
+
+        // --- B. KOTAK TENGAH (SOALAN + PROGRESS BAR MASA) ---
+        const centerW = 330, centerH = 150;
+        const centerX = (canvas.width - centerW) / 2;
+        const centerY = (canvas.height - centerH) / 2;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.strokeStyle = feedbackStatus !== "" ? feedbackColor : '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(centerX, centerY, centerW, centerH, 20);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+
+        // Bar Masa Bertingkat di Bawah Kotak Tengah
+        const timerBarWidth = (timeLeft / QUESTION_TIME_LIMIT) * (centerW - 20);
+        ctx.fillStyle = timeLeft <= 3 ? '#ff4757' : '#2ed573';
+        ctx.beginPath();
+        ctx.roundRect(centerX + 10, centerY + centerH - 12, Math.max(0, timerBarWidth), 6, 3);
+        ctx.fill();
+
+        // Teks Soalan / Status
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(-1, 1);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+        if (feedbackStatus !== "") {
+          ctx.fillStyle = feedbackColor;
+          ctx.font = '900 36px Outfit';
+          ctx.fillText(feedbackStatus, 0, -5);
+        } else {
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 20px Fredoka';
+          const currentQuestion = document.getElementById('soalanhiddenvalue').value;
+          drawCenteredText(ctx, currentQuestion, 0, -5, centerW - 40, 26);
+        }
+        ctx.restore();
+
+        // --- C. TRACKING BOLA TAPAK TANGAN ---
+        if (handLandmarks) {
+          const palmIndices = [0, 5, 9, 13, 17];
+          let palmX = 0, palmY = 0;
+
+          palmIndices.forEach(idx => {
+            palmX += handLandmarks[idx].x;
+            palmY += handLandmarks[idx].y;
+          });
+
+          palmX = (palmX / palmIndices.length) * canvas.width;
+          palmY = (palmY / palmIndices.length) * canvas.height;
+
+          const pulseR = 26 + Math.sin(pulseAnim * 3) * 4;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(palmX, palmY, pulseR, 0, Math.PI * 2);
+          ctx.strokeStyle = '#2ed573'; ctx.lineWidth = 3;
+          ctx.setLineDash([6, 6]);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(palmX, palmY, 20, 0, Math.PI * 2);
+          ctx.fillStyle = '#2ed573'; ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(palmX, palmY, 8, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff'; ctx.fill();
+          ctx.restore();
+
+          // Semak Jawapan Pilihan
+          if (!isCooldown) {
+            Object.keys(boxes).forEach(selectedOption => {
+              const b = boxes[selectedOption];
+              const correctAnswer = document.getElementById('jawapan').value;
+
+              if (palmX >= b.x && palmX <= b.x + b.w && palmY >= b.y && palmY <= b.y + b.h) {
+                isCooldown = true;
+                clearInterval(timerInterval);
+
+                if (selectedOption === correctAnswer) {
+                  feedbackStatus = "✔ BETUL!";
+                  feedbackColor = "#2ed573";
+                  correctCount++;
+                  document.getElementById('score').textContent = correctCount;
+                  playSound('correct');
+                  createParticles(palmX, palmY, '#2ed573');
+                } else {
+                  feedbackStatus = "✖ SALAH!";
+                  feedbackColor = "#ff4757";
+                  playSound('wrong');
+                  createParticles(palmX, palmY, '#ff4757');
+                }
+
+                // Berpindah ke soalan seterusnya selepas 1.8 saat
+                setTimeout(() => {
+                  feedbackStatus = "";
+                  isCooldown = false;
+                  currentQuestionIndex++;
+                  displayQuestion(currentQuestionIndex);
+                }, 1800);
+              }
+            });
+          }
         }
       }
 
       requestAnimationFrame(gameLoop);
     }
 
-    gameLoop();
+    window.onload = () => {
+      loadAllQuestions();
+      gameLoop();
+    };
   </script>
 </body>
 </html>
