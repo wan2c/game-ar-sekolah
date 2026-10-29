@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengimbas Barcode Fullscreen Overlay</title>
+
+    <!-- Memuatkan Library Html5-QRCode -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000;
+        }
+
+        /* Container Kamera Fullscreen */
+        #scanner-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #reader {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Menghilangkan elemen UI bawaan library yang tidak diperlukan */
+        #reader__scan_region {
+            background: transparent;
+        }
+
+        #reader__dashboard {
+            display: none !important;
+        }
+
+        /* Effect Mirror (Kiri-Kanan Sahaja) */
+        #reader video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            transform: scaleX(-1) !important;
+            -webkit-transform: scaleX(-1) !important;
+        }
+
+        /* Tetingkap Overlay Di Atas Kamera */
+        .overlay-card {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 90%;
+            max-width: 450px;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            color: #ffffff;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        /* Class untuk sembunyikan overlay secara mulus */
+        .overlay-card.hidden {
+            opacity: 0;
+            transform: translate(-50%, -20px);
+            pointer-events: none;
+        }
+
+        /* Gambar Profil */
+        .profile-img {
+            width: 110px;
+            height: 110px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 3px solid #3b82f6;
+            margin: 0 auto 12px auto;
+            display: none;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Teks Ucapan Selamat Datang */
+        .welcome-text {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .user-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f8fafc;
+            margin: 4px 0 8px 0;
+        }
+
+        .user-score {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Mesej Tiada Rekod / Status */
+        .status-message {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ef4444;
+            margin-top: 5px;
+        }
+
+        /* Frame Penanda Imbasan (Scanning Sight) */
+        .scan-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            height: 180px;
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HIDDEN INPUTS FOR FUTURE FUNCTIONS -->
+    <input type="hidden" id="hidden-id" value="">
+    <input type="hidden" id="hidden-idqr" value="">
+    <input type="hidden" id="hidden-nama" value="">
+    <input type="hidden" id="hidden-markah" value="">
+    <input type="hidden" id="hidden-gambar" value="">
+
+    <div id="scanner-container">
+        <!-- Kamera Fullscreen -->
+        <div id="reader"></div>
+
+        <!-- Frame Petunjuk Kawasan Imbasan -->
+        <div class="scan-frame"></div>
+
+        <!-- Overlay Kad Maklumat -->
+        <div class="overlay-card" id="overlay-card">
+            
+            <!-- Gambar Pengguna -->
+            <img id="display-gambar" class="profile-img" src="" alt="Gambar Profil">
+            
+            <!-- Kawasan Teks Pengguna -->
+            <div id="user-info-box" style="display: none;">
+                <div class="welcome-text">Selamat Datang</div>
+                <div id="display-nama" class="user-name">-</div>
+                <div class="user-score">Markah: <span id="display-markah">0</span></div>
+            </div>
+
+            <!-- Kawasan Mesej Status / Tidak Wujud -->
+            <div id="status-box">
+                <div id="display-status" class="welcome-text" style="color: #f1f5f9; font-size: 1.2rem;">
+                    Sedia untuk imbasan...
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHAiPtRtWCzSq0PBp8r5hFvrVkqlZlae8xgw63EZcVPm3Xlr-wkC8rEm4cLBxX0_TQaA/exec";
+
+        let isProcessing = false;
+        let resetTimer = null;
+
+        function onScanSuccess(decodedText) {
+            if (isProcessing) return;
+            
+            isProcessing = true;
+            clearTimeout(resetTimer); // Padamkan timer lama jika ada imbasan baru
+            playBeep();
+
+            showLoadingState();
+
+            fetch(`${APPS_SCRIPT_URL}?idqr=${encodeURIComponent(decodedText)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.found) {
+                        // 1. SIMPAN DATA DALAM HIDDEN INPUTS
+                        saveToHiddenInputs(data.id, data.idqr, data.nama, data.markah, data.gambar);
+
+                        // 2. PAPARKAN DATA KEPADA PENGGUNA
+                        document.getElementById('display-nama').innerText = data.nama;
+                        document.getElementById('display-markah').innerText = data.markah;
+                        
+                        const imgEl = document.getElementById('display-gambar');
+                        if (data.gambar && String(data.gambar).trim() !== "") {
+                            imgEl.src = data.gambar;
+                            imgEl.style.display = "block";
+                        } else {
+                            imgEl.style.display = "none";
+                        }
+
+                        document.getElementById('user-info-box').style.display = "block";
+                        document.getElementById('status-box').style.display = "none";
+
+                    } else {
+                        // SIMPAN HANYA IDQR YANG DIBACA, LAIN-LAIN KOSONGKAN
+                        saveToHiddenInputs("", decodedText, "", "", "");
+                        showNotFoundState();
+                    }
+                })
+                .catch(error => {
+                    console.error("Ralat API:", error);
+                    saveToHiddenInputs("", "", "", "", "");
+                    showErrorState();
+                })
+                .finally(() => {
+                    // 3. SELANG 5 SAAT: SEMBUNYIKAN PAPARAN & RESET UNTUK IMBASAN SETERUSNYA
+                    resetTimer = setTimeout(() => {
+                        resetDisplay();
+                    }, 5000);
+                });
+        }
+
+        // Fungsi Simpan ke Hidden Input
+        function saveToHiddenInputs(id, idqr, nama, markah, gambar) {
+            document.getElementById('hidden-id').value = id || "";
+            document.getElementById('hidden-idqr').value = idqr || "";
+            document.getElementById('hidden-nama').value = nama || "";
+            document.getElementById('hidden-markah').value = markah || "";
+            document.getElementById('hidden-gambar').value = gambar || "";
+
+            console.log("--> Data terkini disimpan dalam Hidden Inputs:", {
+                id: document.getElementById('hidden-id').value,
+                idqr: document.getElementById('hidden-idqr').value,
+                nama: document.getElementById('hidden-nama').value,
+                markah: document.getElementById('hidden-markah').value
+            });
+        }
+
+        function showLoadingState() {
+            const overlayCard = document.getElementById('overlay-card');
+            overlayCard.classList.remove('hidden');
+
+            document.getElementById('display-gambar').style.display = "none";
+            document.getElementById('user-info-box').style.display = "none";
+            
+            const statusBox = document.getElementById('status-box');
+            const statusText = document.getElementById('display-status');
+            
+            statusBox.style.display = "block";
+            statusText.innerText = "Mencari rekod...";
+            statusText.className = "welcome-text";
+            statusText.style.color = "#60a5fa";
+        }
+
+        function showNotFoundState() {
+            document.getElementById('display-gambar').style.display = "none";
+            document.getElementById('user-info-box').style.display = "none";
+            
+            const statusBox = document.getElementById('status-box');
+            const statusText = document.getElementById('display-status');
+            
+            statusBox.style.display = "block";
+            statusText.innerText = "Oops. tiada rekod";
+            statusText.className = "status-message";
+        }
+
+        function showErrorState() {
+            document.getElementById('display-gambar').style.display = "none";
+            document.getElementById('user-info-box').style.display = "none";
+            
+            const statusBox = document.getElementById('status-box');
+            const statusText = document.getElementById('display-status');
+            
+            statusBox.style.display = "block";
+            statusText.innerText = "Ralat Sambungan!";
+            statusText.className = "status-message";
+        }
+
+        // Fungsi Reset Paparan Selepas 5 Saat
+        function resetDisplay() {
+            const overlayCard = document.getElementById('overlay-card');
+            
+            // Sembunyikan kad dengan animasi fade-out
+            overlayCard.classList.add('hidden');
+
+            setTimeout(() => {
+                // Setel semula elemen UI
+                document.getElementById('display-gambar').style.display = "none";
+                document.getElementById('user-info-box').style.display = "none";
+                
+                const statusBox = document.getElementById('status-box');
+                const statusText = document.getElementById('display-status');
+                
+                statusBox.style.display = "block";
+                statusText.innerText = "Sedia untuk imbasan...";
+                statusText.className = "welcome-text";
+                statusText.style.color = "#f1f5f9";
+
+                // Tunjukkan semula kad overlay
+                overlayCard.classList.remove('hidden');
+
+                // Buka semula kunci imbasan
+                isProcessing = false;
+            }, 500);
+        }
+
+        // Inisialisasi Pengimbas Kamera
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 15, 
+                qrbox: { width: 280, height: 180 },
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            }, 
+            false
+        );
+
+        html5QrcodeScanner.render(onScanSuccess, () => {});
+
+        // Bunyi Beep
+        function playBeep() {
+            let ctx = new (window.AudioContext || window.webkitAudioContext)();
+            let osc = ctx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.1);
+        }
+    </script>
+
+</body>
+</html>
