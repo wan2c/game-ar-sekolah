@@ -28,24 +28,18 @@
             position: relative;
             width: 100vw;
             height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         #reader {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            border: none !important;
         }
 
-        /* Menghilangkan elemen UI bawaan library yang tidak diperlukan */
-        #reader__scan_region {
-            background: transparent;
-        }
-
-        #reader__dashboard {
-            display: none !important;
-        }
-
-        /* Effect Mirror (Kiri-Kanan Sahaja) */
+        /* Pastikan elemen video mengikut saiz layar tanpa merosakkan rendering */
         #reader video {
             width: 100% !important;
             height: 100% !important;
@@ -57,25 +51,24 @@
         /* Tetingkap Overlay Di Atas Kamera */
         .overlay-card {
             position: absolute;
-            top: 40px;
+            top: 30px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
             width: 90%;
             max-width: 450px;
-            background: rgba(15, 23, 42, 0.75);
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 20px;
-            padding: 24px;
+            padding: 20px;
             text-align: center;
             color: #ffffff;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             transition: opacity 0.5s ease, transform 0.5s ease;
         }
 
-        /* Class untuk sembunyikan overlay secara mulus */
         .overlay-card.hidden {
             opacity: 0;
             transform: translate(-50%, -20px);
@@ -84,19 +77,18 @@
 
         /* Gambar Profil */
         .profile-img {
-            width: 110px;
-            height: 110px;
+            width: 100px;
+            height: 100px;
             object-fit: cover;
             border-radius: 50%;
             border: 3px solid #3b82f6;
-            margin: 0 auto 12px auto;
+            margin: 0 auto 10px auto;
             display: none;
             box-shadow: 0 4px 14px rgba(59, 130, 246, 0.5);
         }
 
-        /* Teks Ucapan Selamat Datang */
         .welcome-text {
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: #94a3b8;
             font-weight: 500;
             letter-spacing: 0.5px;
@@ -104,10 +96,10 @@
         }
 
         .user-name {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
             color: #f8fafc;
-            margin: 4px 0 8px 0;
+            margin: 4px 0 6px 0;
         }
 
         .user-score {
@@ -117,26 +109,25 @@
             border: 1px solid rgba(96, 165, 250, 0.3);
             padding: 4px 16px;
             border-radius: 20px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
         }
 
-        /* Mesej Tiada Rekod / Status */
         .status-message {
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             font-weight: 700;
             color: #ef4444;
             margin-top: 5px;
         }
 
-        /* Frame Penanda Imbasan (Scanning Sight) */
+        /* Frame Penanda Imbasan */
         .scan-frame {
             position: absolute;
-            top: 50%;
+            top: 55%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 280px;
-            height: 180px;
+            width: 260px;
+            height: 160px;
             border: 2px dashed rgba(255, 255, 255, 0.5);
             border-radius: 16px;
             pointer-events: none;
@@ -173,9 +164,9 @@
                 <div class="user-score">Markah: <span id="display-markah">0</span></div>
             </div>
 
-            <!-- Kawasan Mesej Status / Tidak Wujud -->
+            <!-- Kawasan Mesej Status -->
             <div id="status-box">
-                <div id="display-status" class="welcome-text" style="color: #f1f5f9; font-size: 1.2rem;">
+                <div id="display-status" class="welcome-text" style="color: #f1f5f9; font-size: 1.1rem;">
                     Sedia untuk imbasan...
                 </div>
             </div>
@@ -184,6 +175,7 @@
     </div>
 
     <script>
+        // MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI SINI
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxHAiPtRtWCzSq0PBp8r5hFvrVkqlZlae8xgw63EZcVPm3Xlr-wkC8rEm4cLBxX0_TQaA/exec";
 
         let isProcessing = false;
@@ -193,7 +185,7 @@
             if (isProcessing) return;
             
             isProcessing = true;
-            clearTimeout(resetTimer); // Padamkan timer lama jika ada imbasan baru
+            clearTimeout(resetTimer);
             playBeep();
 
             showLoadingState();
@@ -202,10 +194,8 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.found) {
-                        // 1. SIMPAN DATA DALAM HIDDEN INPUTS
                         saveToHiddenInputs(data.id, data.idqr, data.nama, data.markah, data.gambar);
 
-                        // 2. PAPARKAN DATA KEPADA PENGGUNA
                         document.getElementById('display-nama').innerText = data.nama;
                         document.getElementById('display-markah').innerText = data.markah;
                         
@@ -221,7 +211,6 @@
                         document.getElementById('status-box').style.display = "none";
 
                     } else {
-                        // SIMPAN HANYA IDQR YANG DIBACA, LAIN-LAIN KOSONGKAN
                         saveToHiddenInputs("", decodedText, "", "", "");
                         showNotFoundState();
                     }
@@ -232,27 +221,18 @@
                     showErrorState();
                 })
                 .finally(() => {
-                    // 3. SELANG 5 SAAT: SEMBUNYIKAN PAPARAN & RESET UNTUK IMBASAN SETERUSNYA
                     resetTimer = setTimeout(() => {
                         resetDisplay();
                     }, 5000);
                 });
         }
 
-        // Fungsi Simpan ke Hidden Input
         function saveToHiddenInputs(id, idqr, nama, markah, gambar) {
             document.getElementById('hidden-id').value = id || "";
             document.getElementById('hidden-idqr').value = idqr || "";
             document.getElementById('hidden-nama').value = nama || "";
             document.getElementById('hidden-markah').value = markah || "";
             document.getElementById('hidden-gambar').value = gambar || "";
-
-            console.log("--> Data terkini disimpan dalam Hidden Inputs:", {
-                id: document.getElementById('hidden-id').value,
-                idqr: document.getElementById('hidden-idqr').value,
-                nama: document.getElementById('hidden-nama').value,
-                markah: document.getElementById('hidden-markah').value
-            });
         }
 
         function showLoadingState() {
@@ -295,15 +275,11 @@
             statusText.className = "status-message";
         }
 
-        // Fungsi Reset Paparan Selepas 5 Saat
         function resetDisplay() {
             const overlayCard = document.getElementById('overlay-card');
-            
-            // Sembunyikan kad dengan animasi fade-out
             overlayCard.classList.add('hidden');
 
             setTimeout(() => {
-                // Setel semula elemen UI
                 document.getElementById('display-gambar').style.display = "none";
                 document.getElementById('user-info-box').style.display = "none";
                 
@@ -315,10 +291,7 @@
                 statusText.className = "welcome-text";
                 statusText.style.color = "#f1f5f9";
 
-                // Tunjukkan semula kad overlay
                 overlayCard.classList.remove('hidden');
-
-                // Buka semula kunci imbasan
                 isProcessing = false;
             }, 500);
         }
@@ -328,7 +301,7 @@
             "reader", 
             { 
                 fps: 15, 
-                qrbox: { width: 280, height: 180 },
+                qrbox: { width: 260, height: 160 },
                 experimentalFeatures: { useBarCodeDetectorIfSupported: true }
             }, 
             false
@@ -336,7 +309,6 @@
 
         html5QrcodeScanner.render(onScanSuccess, () => {});
 
-        // Bunyi Beep
         function playBeep() {
             let ctx = new (window.AudioContext || window.webkitAudioContext)();
             let osc = ctx.createOscillator();
