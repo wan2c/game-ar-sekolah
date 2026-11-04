@@ -45,6 +45,28 @@
             display: none !important;
         }
 
+        #start-camera {
+            position: absolute;
+            left: 50%;
+            bottom: 32px;
+            transform: translateX(-50%);
+            z-index: 20;
+            padding: 14px 28px;
+            border: 0;
+            border-radius: 999px;
+            background: #2563eb;
+            color: #fff;
+            font: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #start-camera:disabled {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
         /* Effect Mirror (Kiri-Kanan Sahaja) */
         #reader video {
             width: 100% !important;
@@ -156,6 +178,7 @@
     <div id="scanner-container">
         <!-- Kamera Fullscreen -->
         <div id="reader"></div>
+        <button id="start-camera" type="button">Mula Kamera</button>
 
         <!-- Frame Petunjuk Kawasan Imbasan -->
         <div class="scan-frame"></div>
@@ -334,18 +357,40 @@
             }, 500);
         }
 
-        // Inisialisasi Pengimbas Kamera
-        let html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader", 
-            { 
-                fps: 15, 
-                qrbox: { width: 280, height: 180 },
-                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-            }, 
-            false
-        );
+        // Mulakan kamera hanya selepas tindakan pengguna untuk memudahkan ujian kebenaran kamera.
+        const html5QrcodeScanner = new Html5Qrcode("reader");
+        const startCameraButton = document.getElementById('start-camera');
+        const scanConfig = {
+            fps: 15,
+            qrbox: { width: 280, height: 180 },
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        };
 
-        html5QrcodeScanner.render(onScanSuccess, () => {});
+        startCameraButton.addEventListener('click', async () => {
+            startCameraButton.disabled = true;
+            startCameraButton.textContent = "Memulakan kamera...";
+            console.log("Meminta akses kamera...");
+
+            try {
+                await html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    scanConfig,
+                    onScanSuccess,
+                    () => {}
+                );
+                console.log("Kamera berjaya dimulakan.");
+                startCameraButton.hidden = true;
+            } catch (error) {
+                console.error("Gagal memulakan kamera:", error);
+                startCameraButton.disabled = false;
+                startCameraButton.textContent = "Cuba Mula Kamera Lagi";
+                const statusText = document.getElementById('display-status');
+                statusText.innerText = `Kamera gagal dimulakan: ${error.message || error}`;
+                statusText.className = "status-message";
+                document.getElementById('status-box').style.display = "block";
+                document.getElementById('overlay-card').classList.remove('hidden');
+            }
+        });
 
         // Bunyi Beep
         function playBeep() {
