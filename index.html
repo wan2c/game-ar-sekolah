@@ -212,7 +212,23 @@
                         saveToHiddenInputs(record.id, record.idqr, record.nama, record.markah, record.gambar);
                         sessionStorage.setItem('barcodeRecord', JSON.stringify(record));
 
-                        window.location.assign(new URL('game.html', window.location.href).href);
+                        document.getElementById('display-nama').innerText = record.nama || '-';
+                        document.getElementById('display-markah').innerText = record.markah || '0';
+
+                        const imgEl = document.getElementById('display-gambar');
+                        if (record.gambar && String(record.gambar).trim() !== '') {
+                            imgEl.src = record.gambar;
+                            imgEl.style.display = 'block';
+                        } else {
+                            imgEl.style.display = 'none';
+                        }
+
+                        document.getElementById('user-info-box').style.display = 'block';
+                        document.getElementById('status-box').style.display = 'none';
+
+                        setTimeout(() => {
+                            window.location.assign(new URL('game soalan-1.html', window.location.href).href);
+                        }, 1000);
                         return;
 
                     } else {
