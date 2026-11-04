@@ -178,7 +178,7 @@
     <div id="scanner-container">
         <!-- Kamera Fullscreen -->
         <div id="reader"></div>
-        <button id="start-camera" type="button">Mula Kamera</button>
+        <button id="start-camera" type="button">Mula Kamera (5)</button>
 
         <!-- Frame Petunjuk Kawasan Imbasan -->
         <div class="scan-frame"></div>
@@ -365,8 +365,20 @@
             qrbox: { width: 280, height: 180 },
             experimentalFeatures: { useBarCodeDetectorIfSupported: true }
         };
+        let countdown = 5;
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                startCameraButton.textContent = `Mula Kamera (${countdown})`;
+                return;
+            }
+
+            clearInterval(countdownInterval);
+            startCameraButton.click();
+        }, 1000);
 
         startCameraButton.addEventListener('click', async () => {
+            clearInterval(countdownInterval);
             startCameraButton.disabled = true;
             startCameraButton.textContent = "Memulakan kamera...";
             console.log("Meminta akses kamera...");
